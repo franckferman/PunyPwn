@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PunyPwn - Domain Attack Surface Generator</title>
+<meta name="description" content="PunyPwn enumerates typosquatting, IDN homograph, bitsquatting, and visual spoofing candidates for red team, threat hunting, and brand protection.">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#060606;--s1:#0d0d0d;--s2:#111;--border:#1c1c1c;--dim:#252525;--text:#ccc;--muted:#444;--faint:#1e1e1e;--accent:#c0392b;--accent2:#e74c3c;--green:#27ae60;--blue:#569cd6;--yellow:#dcdcaa;--orange:#ce9178;--teal:#4ec9b0;--mono:'Courier New',Courier,monospace}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:1000}
+.bg-glow{position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 55%,rgba(192,57,43,.05) 0%,transparent 70%);animation:glow 5s ease-in-out infinite;pointer-events:none;z-index:0}
+@keyframes glow{0%,100%{opacity:.6}50%{opacity:1}}
+.bg-grid{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.page{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:3rem 1.5rem 4rem}
+
+.header{text-align:center;padding:2rem 0 3rem;display:flex;flex-direction:column;align-items:center;gap:.9rem}
+.req-pill{display:inline-flex;align-items:center;gap:.5rem;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);border:1px solid var(--faint);padding:.22rem .75rem;border-radius:2px}
+.req-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 2.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+.glitch{font-size:clamp(1.4rem,5vw,3.2rem);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);position:relative;user-select:none}
+.glitch::before,.glitch::after{content:attr(data-text);position:absolute;top:0;left:0;width:100%;height:100%}
+.glitch::before{color:var(--accent);clip-path:inset(100% 0 0 0);animation:gb 5s infinite}
+.glitch::after{color:rgba(195,195,195,.85);clip-path:inset(100% 0 0 0);animation:ga 5s infinite}
+@keyframes gb{0%,81%,87%,93%,100%{clip-path:inset(100% 0 0 0);transform:translate(0);opacity:1}82%{clip-path:polygon(0 11%,100% 11%,100% 20%,0 20%);transform:translate(-11px,0)}83%{clip-path:polygon(0 44%,100% 44%,100% 53%,0 53%,0 7%,100% 7%,100% 15%,0 15%);transform:translate(7px,0)}84%{clip-path:polygon(0 67%,100% 67%,100% 75%,0 75%);transform:translate(-5px,0)}85%{clip-path:polygon(0 29%,100% 29%,100% 37%,0 37%);transform:translate(9px,0)}86%{clip-path:inset(100% 0 0 0);transform:translate(0)}91%{clip-path:polygon(0 19%,100% 19%,100% 27%,0 27%);transform:translate(-6px,0);opacity:.4}92%{clip-path:inset(100% 0 0 0);opacity:0}}
+@keyframes ga{0%,81%,87%,93%,100%{clip-path:inset(100% 0 0 0);transform:translate(0);opacity:1}82.4%{clip-path:polygon(0 57%,100% 57%,100% 66%,0 66%);transform:translate(10px,0)}83.4%{clip-path:polygon(0 24%,100% 24%,100% 32%,0 32%,0 71%,100% 71%,100% 79%,0 79%);transform:translate(-7px,0)}84.4%{clip-path:polygon(0 49%,100% 49%,100% 58%,0 58%);transform:translate(5px,0)}85.4%{clip-path:polygon(0 14%,100% 14%,100% 21%,0 21%);transform:translate(-8px,0)}86.4%{clip-path:inset(100% 0 0 0);transform:translate(0)}91.5%{clip-path:polygon(0 59%,100% 59%,100% 67%,0 67%);transform:translate(5px,0);opacity:.3}92.5%{clip-path:inset(100% 0 0 0);opacity:0}}
+
+.tagline{font-size:clamp(.65rem,1.6vw,.8rem);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);text-align:center}
+.tagline .sep{color:#2a2a2a;margin:0 .4rem}
+
+h2{font-size:.9rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:3rem 0 1rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+
+.terminal{background:var(--s1);border:1px solid var(--border);border-radius:5px;overflow:hidden;margin:1.2rem 0;transition:box-shadow .3s}
+.terminal:hover{box-shadow:0 0 50px rgba(192,57,43,.08),0 8px 40px rgba(0,0,0,.4)}
+.term-bar{background:var(--s2);padding:.55rem 1rem;display:flex;align-items:center;gap:.45rem;border-bottom:1px solid var(--border)}
+.dot{width:9px;height:9px;border-radius:50%;transition:background .25s}
+.dot-r{background:#3d1a1a}.dot-y{background:#2e2a14}.dot-g{background:#152a1a}
+.terminal:hover .dot-r{background:#c0392b}.terminal:hover .dot-y{background:#c0892b}.terminal:hover .dot-g{background:#27ae60}
+.term-label{font-size:.62rem;color:var(--muted);margin:0 auto;letter-spacing:.05em}
+.term-body{padding:1.1rem 1.4rem;font-size:.82rem;line-height:1.7;overflow-x:auto;white-space:pre}
+.ps{color:var(--accent2);user-select:none}
+.kw{color:var(--blue)}.flag{color:var(--yellow)}.str{color:var(--orange)}.cmt{color:var(--muted)}.out{color:var(--teal)}.dim{color:#555}
+
+.tbl{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.78rem}
+.tbl th{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.tbl td{padding:.45rem .7rem;border-bottom:1px solid var(--faint);vertical-align:top}
+.tbl .col-mod{color:var(--yellow);white-space:nowrap}
+.tbl .col-ex{color:var(--orange)}
+.tbl .col-desc{color:var(--muted)}
+.tbl .col-id{color:var(--teal)}
+
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem;margin:1rem 0}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:4px;padding:1rem;transition:border-color .2s}
+.card:hover{border-color:rgba(192,57,43,.4)}
+.card h3{color:var(--accent);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
+.card p{font-size:.72rem;color:var(--muted);margin:0}
+
+.links{display:flex;gap:1.2rem;flex-wrap:wrap;justify-content:center;margin-top:2rem}
+.lnk{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;border:1px solid var(--faint);padding:.5rem 1.1rem;border-radius:3px;transition:color .15s,border-color .15s}
+.lnk:hover{color:var(--text);border-color:var(--border)}
+
+footer{text-align:center;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);font-size:.6rem;color:#1e1e1e}
+footer a{color:#2a2a2a;text-decoration:none;transition:color .15s}
+footer a:hover{color:var(--muted)}
+
+@media(max-width:600px){.page{padding:2rem 1rem 3rem}.term-body{font-size:.72rem;padding:.8rem 1rem}.tbl{font-size:.7rem}}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="page">
+
+<div class="header">
+  <span class="req-pill">12 Attack Modules</span>
+  <h1 class="glitch" data-text="PunyPwn">PunyPwn</h1>
+  <p class="tagline">Typosquatting<span class="sep">&middot;</span>IDN Homograph<span class="sep">&middot;</span>Bitsquatting<span class="sep">&middot;</span>Domain Spoofing</p>
+</div>
+
+<h2>Attack Modules</h2>
+<table class="tbl">
+  <thead><tr><th>Module</th><th>Technique</th><th>Example (google.com)</th></tr></thead>
+  <tbody>
+    <tr><td class="col-mod">idn</td><td>Cyrillic homograph (Punycode)</td><td class="col-ex">xn--ggle-55da.com</td></tr>
+    <tr><td class="col-mod">homoglyph</td><td>ASCII visual lookalikes</td><td class="col-ex">goog1e.com</td></tr>
+    <tr><td class="col-mod">omission</td><td>Character removed</td><td class="col-ex">gogle.com</td></tr>
+    <tr><td class="col-mod">repetition</td><td>Character doubled</td><td class="col-ex">googgle.com</td></tr>
+    <tr><td class="col-mod">swap</td><td>Adjacent transposition</td><td class="col-ex">googel.com</td></tr>
+    <tr><td class="col-mod">insertion</td><td>Extra character</td><td class="col-ex">googale.com</td></tr>
+    <tr><td class="col-mod">replace</td><td>QWERTY adjacent key</td><td class="col-ex">goofle.com</td></tr>
+    <tr><td class="col-mod">bitsquat</td><td>Single bit flip</td><td class="col-ex">googlg.com</td></tr>
+    <tr><td class="col-mod">tld</td><td>TLD typos</td><td class="col-ex">google.cm, .co, .con</td></tr>
+    <tr><td class="col-mod">hyphen</td><td>Hyphen insertion</td><td class="col-ex">goo-gle.com</td></tr>
+    <tr><td class="col-mod">subdomain</td><td>Dot insertion</td><td class="col-ex">g.oogle.com</td></tr>
+    <tr><td class="col-mod">vowelswap</td><td>Vowel substitution</td><td class="col-ex">googla.com</td></tr>
+  </tbody>
+</table>
+
+<h2>Terminal Demo</h2>
+<div class="terminal">
+  <div class="term-bar">
+    <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+    <span class="term-label">punypwn</span>
+  </div>
+  <div class="term-body"><span class="cmt"># Full attack surface enumeration</span>
+<span class="ps">$ </span><span class="kw">python3 PunyPwn.py</span> <span class="flag">-d</span> <span class="str">paypal.com</span> <span class="flag">--attack</span> <span class="str">all</span> <span class="flag">--count</span>
+
+<span class="out">[*] Target: paypal.com
+[*] Attacks: idn, homoglyph, omission, repetition, swap, insertion, replace, bitsquat, tld, hyphen, subdomain, vowelswap</span>
+  <span class="dim">idn               84</span>
+  <span class="dim">homoglyph          8</span>
+  <span class="dim">omission           6</span>
+  <span class="dim">repetition         6</span>
+  <span class="dim">swap               5</span>
+  <span class="dim">insertion        252</span>
+  <span class="dim">replace           18</span>
+  <span class="dim">bitsquat          31</span>
+  <span class="dim">tld                9</span>
+  <span class="dim">hyphen             5</span>
+  <span class="dim">subdomain          5</span>
+  <span class="dim">vowelswap          8</span>
+  <span class="dim">TOTAL            437</span></div>
+</div>
+
+<div class="terminal">
+  <div class="term-bar">
+    <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+    <span class="term-label">red team examples</span>
+  </div>
+  <div class="term-body"><span class="cmt"># Targeted typo modules for phishing campaign</span>
+<span class="ps">$ </span><span class="kw">python3 PunyPwn.py</span> <span class="flag">-d</span> <span class="str">microsoft.com</span> <span class="flag">--attack</span> <span class="str">omission,swap,replace</span> <span class="flag">-o</span> <span class="str">results.csv</span>
+
+<span class="cmt"># IDN-only, highest fidelity, export JSON</span>
+<span class="ps">$ </span><span class="kw">python3 PunyPwn.py</span> <span class="flag">-d</span> <span class="str">paypal.com</span> <span class="flag">--attack</span> <span class="str">idn</span> <span class="flag">--style</span> <span class="str">very-realistic</span> <span class="flag">-o</span> <span class="str">idn.json</span>
+
+<span class="cmt"># Pipe into DNS resolution check</span>
+<span class="ps">$ </span><span class="kw">python3 PunyPwn.py</span> <span class="flag">-d</span> <span class="str">example.com</span> <span class="flag">--attack</span> <span class="str">omission,tld</span> <span class="flag">-q</span> | xargs -I{} dig +short {}
+
+<span class="cmt"># Batch mode: multiple targets</span>
+<span class="ps">$ </span><span class="kw">python3 PunyPwn.py</span> <span class="flag">--batch</span> <span class="str">targets.txt</span> <span class="flag">--attack</span> <span class="str">all</span> <span class="flag">-o</span> <span class="str">campaign.json</span></div>
+</div>
+
+<h2>MITRE ATT&CK</h2>
+<div class="card-grid">
+  <div class="card"><h3>T1566.002</h3><p>Spearphishing Link - Homograph/typo domains in phishing emails</p></div>
+  <div class="card"><h3>T1036</h3><p>Masquerading - Domain spoofing at DNS/TLS layer</p></div>
+  <div class="card"><h3>T1583.001</h3><p>Acquire Infrastructure - Registration of generated candidates</p></div>
+  <div class="card"><h3>T1598</h3><p>Phishing for Information - Credential harvesting via clone sites</p></div>
+</div>
+
+<h2>Detection</h2>
+<div class="terminal">
+  <div class="term-bar">
+    <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+    <span class="term-label">detection signatures</span>
+  </div>
+  <div class="term-body"><span class="cmt"># Suricata / Snort - flag IDN Punycode queries</span>
+alert dns any any -> any 53 (msg:"IDN Punycode domain query"; dns.query; content:"xn--"; nocase; sid:9000001; rev:1;)
+
+<span class="cmt"># Splunk - hunt xn-- resolutions</span>
+index=dns query="xn--*" | stats count by query, src_ip | sort -count</div>
+</div>
+
+<div class="links">
+  <a class="lnk" href="https://github.com/franckferman/PunyPwn/archive/refs/heads/stable.zip">Download</a>
+  <a class="lnk" href="https://github.com/franckferman/PunyPwn">Source</a>
+  <a class="lnk" href="https://github.com/franckferman/PunyPwn#readme">Docs</a>
+</div>
+
+<footer>
+  <a href="https://github.com/franckferman">Franck FERMAN</a> &nbsp;&middot;&nbsp; AGPL-3.0
+</footer>
+
+</div>
+</body>
+</html>

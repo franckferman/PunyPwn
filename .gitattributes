@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# .gitattributes - PunyPwn
+# ---------------------------------------------------------------------------
+# Enforce LF line endings in the repository for all text files.
+# This prevents CRLF/LF inconsistencies across Linux, macOS, and Windows
+# contributors and guarantees deterministic diffs.
+
+# Default: normalise all text files to LF on commit.
+* text=auto eol=lf
+
+# Explicitly mark source and documentation files as text.
+*.py        text eol=lf diff=python
+*.md        text eol=lf diff=markdown
+*.txt       text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.toml      text eol=lf
+*.cfg       text eol=lf
+*.ini       text eol=lf
+*.sh        text eol=lf
+
+# Git configuration files
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# License and legal files
+LICENSE     text eol=lf
+
+# Binary assets — do not apply text normalisation or diffs.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.svg   binary
+*.pdf   binary
+*.zip   binary
+*.tar   binary
+*.gz    binary
